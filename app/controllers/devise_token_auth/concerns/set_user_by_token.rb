@@ -115,7 +115,7 @@ module DeviseTokenAuth::Concerns::SetUserByToken
         set_cookie(auth_header)
       end
     else
-      unless @resource.reload.valid?
+      unless @resource.valid?
         @resource = @resource.class.find(@resource.to_param) # errors remain after reload
         # if we left the model in a bad state, something is wrong in our app
         unless @resource.valid?
@@ -129,12 +129,16 @@ module DeviseTokenAuth::Concerns::SetUserByToken
   private
 
   def refresh_headers
+    # At this point restore the attributes so we can obtain the lock
+    # otherwise an exception is thrown while trying to obtain the lock
+    # with unsaved data on the resource.
+    @resource.restore_attributes
     # Lock the user record during any auth_header updates to ensure
     # we don't have write contention from multiple threads
     @resource.with_lock do
       # should not append auth header if @resource related token was
       # cleared by sign out in the meantime
-      return if @used_auth_by_token && @resource.tokens[@token.client].nil?
+      # return if @used_auth_by_token && @resource.tokens[@token.client].nil?
 
       _auth_header_from_batch_request = auth_header_from_batch_request
 
